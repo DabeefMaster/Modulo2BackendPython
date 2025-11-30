@@ -6,3 +6,5 @@ openapi.yaml
 .venv/
 *.db
 *.sqlite
+# Mantener .env fuera de git
+# Se dejo .env.example con placeholders
