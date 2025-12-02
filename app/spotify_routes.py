@@ -139,6 +139,23 @@ def eliminar_playlist_spotify(playlist_id: str):
         )
 
 
+def _buscar_en_playlist(nombre_cancion: str, tracks: list[TrackInfo]) -> TrackInfo | None:
+    """Busca una canción en la playlist por nombre (case-insensitive y coincidencia parcial)"""
+    nombre_busqueda = nombre_cancion.lower().strip()
+    
+    # Primero buscar coincidencia exacta
+    for track in tracks:
+        if track.nombre.lower() == nombre_busqueda:
+            return track
+    
+    # Luego buscar coincidencia parcial
+    for track in tracks:
+        if nombre_busqueda in track.nombre.lower():
+            return track
+    
+    return None
+
+
 def _buscar_uri_por_nombre(nombre_cancion: str) -> str:
     token = _spotify_access_token()
     headers = {"Authorization": f"Bearer {token}"}
@@ -158,14 +175,25 @@ def _buscar_uri_por_nombre(nombre_cancion: str) -> str:
     if not items:
         raise HTTPException(
             status_code=404,
-            detail="No se encontro una cancion con ese nombre en Spotify",
+            detail={
+                "error": "No se encontró una canción con ese nombre en Spotify",
+                "nombre_buscado": nombre_cancion,
+                "sugerencia": "Intenta con otro nombre o verifica la ortografía"
+            }
         )
     return items[0].get("uri")
 
 
 def _track_info_from_uri(uri: str) -> TrackInfo:
     if not uri.startswith("spotify:track:"):
-        raise HTTPException(status_code=400, detail="URI de pista invalida")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "URI de pista inválida",
+                "uri_recibida": uri,
+                "formato_esperado": "spotify:track:TRACK_ID"
+            }
+        )
     track_id = uri.split(":")[-1]
     token = _spotify_access_token()
     headers = {"Authorization": f"Bearer {token}"}
@@ -284,91 +312,269 @@ async def _remove_saved_tracks(uris: list[str]):
         )
 
 
-@router.post("/usuarios/{id}/canciones", response_model=UsuarioResponse)
+@router.post(
+    "/usuarios/{id}/canciones",
+    response_model=UsuarioResponse,
+    summary="Añadir canción a la playlist",
+    description="Busca una canción en Spotify por nombre y la añade a la playlist del usuario. La búsqueda retorna el primer resultado encontrado.",
+    responses={
+        200: {"description": "Canción añadida exitosamente"},
+        400: {"description": "Usuario sin playlist o canción ya existe en la playlist"},
+        404: {"description": "Usuario no encontrado o canción no encontrada en Spotify"},
+        502: {"description": "Error al comunicarse con Spotify"},
+    }
+)
 async def anadir_cancion(id: int, cancion: CancionInput):
     """Anade una cancion a la playlist del usuario en Spotify"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id,
+                "sugerencia": "Verifica que el ID del usuario sea correcto"
+            }
+        )
     if not usuario.get("playlist_id"):
-        raise HTTPException(status_code=400, detail="El usuario no tiene playlist asociada")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "El usuario no tiene playlist asociada",
+                "usuario_id": id,
+                "sugerencia": "La playlist pudo no haberse creado correctamente"
+            }
+        )
     track_uri = await run_in_threadpool(_buscar_uri_por_nombre, cancion.nombre_cancion)
     playlist_tracks = await _get_playlist_tracks(usuario["playlist_id"])
     if any(t.uri == track_uri for t in playlist_tracks):
-        raise HTTPException(status_code=400, detail="La cancion ya esta en la playlist")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "La canción ya está en la playlist",
+                "cancion": cancion.nombre_cancion,
+                "sugerencia": "Usa GET /usuarios/{id}/canciones para ver las canciones existentes"
+            }
+        )
 
     await run_in_threadpool(_anadir_cancion_spotify, usuario["playlist_id"], track_uri)
     usuario = get_user_by_id(id)
     return usuario
 
 
-@router.delete("/usuarios/{id}/canciones", response_model=UsuarioResponse)
+@router.delete(
+    "/usuarios/{id}/canciones",
+    response_model=UsuarioResponse,
+    summary="Eliminar canción de la playlist",
+    description="Busca una canción por nombre y la elimina de la playlist del usuario en Spotify.",
+    responses={
+        200: {"description": "Canción eliminada exitosamente"},
+        400: {"description": "Usuario sin playlist asociada"},
+        404: {"description": "Usuario no encontrado, canción no encontrada en Spotify o canción no está en la playlist"},
+        502: {"description": "Error al comunicarse con Spotify"},
+    }
+)
 async def eliminar_cancion(id: int, cancion: CancionInput):
     """Elimina una cancion de la playlist del usuario en Spotify"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
     track_uri = await run_in_threadpool(_buscar_uri_por_nombre, cancion.nombre_cancion)
     playlist_tracks = await _get_playlist_tracks(usuario["playlist_id"])
     if not any(t.uri == track_uri for t in playlist_tracks):
-        raise HTTPException(status_code=404, detail="La cancion no esta en la playlist")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "La canción no está en la playlist",
+                "cancion": cancion.nombre_cancion,
+                "sugerencia": "Verifica las canciones con GET /usuarios/{id}/canciones"
+            }
+        )
     if not usuario.get("playlist_id"):
-        raise HTTPException(status_code=400, detail="El usuario no tiene playlist asociada")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "El usuario no tiene playlist asociada",
+                "usuario_id": id
+            }
+        )
 
     await run_in_threadpool(_eliminar_cancion_spotify, usuario["playlist_id"], track_uri)
     usuario = get_user_by_id(id)
     return usuario
 
 
-@router.post("/usuarios/{id}/likes", response_model=UsuarioResponse)
+@router.post(
+    "/usuarios/{id}/likes",
+    response_model=UsuarioResponse,
+    summary="Dar like a una canción",
+    description="Marca una canción de la playlist del usuario como favorita (like) en Spotify.",
+    responses={
+        200: {"description": "Like añadido exitosamente"},
+        400: {"description": "El like ya existe"},
+        404: {"description": "Usuario no encontrado o canción no está en la playlist"},
+        502: {"description": "Error al comunicarse con Spotify"},
+    }
+)
 async def dar_like(id: int, cancion: CancionInput):
     """Marca una cancion de la playlist como like"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    track_uri = await run_in_threadpool(_buscar_uri_por_nombre, cancion.nombre_cancion)
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
+    
+    # Obtener canciones de la playlist
     playlist_tracks = await _get_playlist_tracks(usuario["playlist_id"])
-    if not any(t.uri == track_uri for t in playlist_tracks):
-        raise HTTPException(status_code=404, detail="La cancion no esta en la playlist")
-    saved = await _tracks_saved_status([track_uri])
+    
+    # Buscar la canción en la playlist del usuario
+    track = _buscar_en_playlist(cancion.nombre_cancion, playlist_tracks)
+    if not track:
+        # Listar las canciones disponibles para ayudar al usuario
+        canciones_disponibles = [t.nombre for t in playlist_tracks[:5]]  # Mostrar primeras 5
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "La canción no está en la playlist",
+                "nombre_buscado": cancion.nombre_cancion,
+                "sugerencia": "Verifica el nombre exacto con GET /usuarios/{id}/canciones",
+                "canciones_disponibles": canciones_disponibles
+            }
+        )
+    
+    # Verificar si ya tiene like
+    saved = await _tracks_saved_status([track.uri])
     if saved[0]:
-        raise HTTPException(status_code=400, detail="El like ya existe")
-    await _add_saved_tracks([track_uri])
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "El like ya existe",
+                "cancion": track.nombre,
+                "sugerencia": "Esta canción ya está marcada como favorita"
+            }
+        )
+    
+    await _add_saved_tracks([track.uri])
     usuario = get_user_by_id(id)
     return usuario
 
 
-@router.delete("/usuarios/{id}/likes", response_model=UsuarioResponse)
+@router.delete(
+    "/usuarios/{id}/likes",
+    response_model=UsuarioResponse,
+    summary="Eliminar like de una canción",
+    description="Quita el marcador de favorita (like) de una canción en Spotify.",
+    responses={
+        200: {"description": "Like eliminado exitosamente"},
+        404: {"description": "Usuario no encontrado o like no existe"},
+        502: {"description": "Error al comunicarse con Spotify"},
+    }
+)
 async def eliminar_like(id: int, cancion: CancionInput):
     """Elimina un like de una cancion"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    track_uri = await run_in_threadpool(_buscar_uri_por_nombre, cancion.nombre_cancion)
-    saved = await _tracks_saved_status([track_uri])
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
+    
+    # Obtener canciones de la playlist
+    playlist_tracks = await _get_playlist_tracks(usuario["playlist_id"])
+    
+    # Buscar la canción en la playlist del usuario
+    track = _buscar_en_playlist(cancion.nombre_cancion, playlist_tracks)
+    if not track:
+        # Listar las canciones disponibles
+        canciones_disponibles = [t.nombre for t in playlist_tracks[:5]]
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "La canción no está en la playlist",
+                "nombre_buscado": cancion.nombre_cancion,
+                "sugerencia": "Verifica el nombre exacto con GET /usuarios/{id}/canciones",
+                "canciones_disponibles": canciones_disponibles
+            }
+        )
+    
+    # Verificar si tiene like
+    saved = await _tracks_saved_status([track.uri])
     if not saved[0]:
-        raise HTTPException(status_code=404, detail="El like no existe")
-    await _remove_saved_tracks([track_uri])
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "El like no existe",
+                "cancion": track.nombre,
+                "sugerencia": "Esta canción no está marcada como favorita"
+            }
+        )
+    
+    await _remove_saved_tracks([track.uri])
     usuario = get_user_by_id(id)
     return usuario
 
 
-@router.get("/usuarios/{id}/canciones", response_model=list[TrackInfo])
+@router.get(
+    "/usuarios/{id}/canciones",
+    response_model=list[TrackInfo],
+    summary="Listar canciones de la playlist",
+    description="Obtiene todas las canciones de la playlist del usuario con información detallada (nombre, artistas, álbum).",
+    responses={
+        200: {"description": "Lista de canciones obtenida exitosamente"},
+        404: {"description": "Usuario no encontrado"},
+        502: {"description": "Error al obtener canciones de Spotify"},
+    }
+)
 async def obtener_canciones(id: int):
     """Devuelve las canciones en la playlist del usuario con nombre y artistas"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
     tracks = await _get_playlist_tracks(usuario["playlist_id"])
     return tracks
 
 
-@router.get("/usuarios/{id}/likes", response_model=list[TrackInfo])
+@router.get(
+    "/usuarios/{id}/likes",
+    response_model=list[TrackInfo],
+    summary="Listar canciones con like",
+    description="Obtiene las canciones marcadas como favoritas (con like) por el usuario con información detallada.",
+    responses={
+        200: {"description": "Lista de canciones favoritas obtenida exitosamente"},
+        404: {"description": "Usuario no encontrado"},
+        502: {"description": "Error al obtener información de Spotify"},
+    }
+)
 async def obtener_likes(id: int):
     """Devuelve las canciones marcadas con like por el usuario con detalles"""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
     playlist_tracks = await _get_playlist_tracks(usuario["playlist_id"])
     if not playlist_tracks:
         return []
@@ -377,12 +583,28 @@ async def obtener_likes(id: int):
     return [t for t, saved in zip(playlist_tracks, statuses) if saved]
 
 
-@router.get("/usuarios/{id}/canciones/por-artista", response_model=list[TrackInfo])
+@router.get(
+    "/usuarios/{id}/canciones/por-artista",
+    response_model=list[TrackInfo],
+    summary="Filtrar canciones por artista",
+    description="Filtra las canciones de la playlist del usuario por nombre de artista. La búsqueda es case-insensitive y busca coincidencias parciales.",
+    responses={
+        200: {"description": "Lista de canciones filtradas obtenida exitosamente"},
+        404: {"description": "Usuario no encontrado"},
+        502: {"description": "Error al obtener canciones de Spotify"},
+    }
+)
 async def canciones_por_artista(id: int, nombre_artista: str = Query(..., description="Nombre del artista a filtrar")):
     """Filtra canciones de la playlist de un usuario por nombre de artista (coincidencia parcial, sin distincion de mayusculas)."""
     usuario = get_user_by_id(id)
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Usuario no encontrado",
+                "id_buscado": id
+            }
+        )
     tracks = await _get_playlist_tracks(usuario["playlist_id"])
     nombre_busqueda = nombre_artista.lower()
     filtradas = [

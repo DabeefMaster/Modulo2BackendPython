@@ -1,0 +1,195 @@
+{
+  "timestamp": "2025-12-02T21:15:13.997140",
+  "total": 31,
+  "passed": 29,
+  "failed": 2,
+  "success_rate": 93.54838709677419,
+  "results": [
+    {
+      "test": "Validación email inválido",
+      "passed": true,
+      "details": "Email inválido rechazado correctamente",
+      "timestamp": "2025-12-02T21:14:43.808920"
+    },
+    {
+      "test": "Validación edad menor a 13",
+      "passed": true,
+      "details": "Edad menor a 13 rechazada",
+      "timestamp": "2025-12-02T21:14:43.818866"
+    },
+    {
+      "test": "Validación edad mayor a 120",
+      "passed": true,
+      "details": "Edad mayor a 120 rechazada",
+      "timestamp": "2025-12-02T21:14:43.822859"
+    },
+    {
+      "test": "Validación nombre muy corto",
+      "passed": true,
+      "details": "Nombre corto rechazado",
+      "timestamp": "2025-12-02T21:14:43.827007"
+    },
+    {
+      "test": "Crear usuario válido",
+      "passed": true,
+      "details": "Usuario creado con ID=4 y playlist_id=3hZ0H9X1OPErGiTOJkn3Z8",
+      "timestamp": "2025-12-02T21:14:44.556651"
+    },
+    {
+      "test": "Rechazar email duplicado",
+      "passed": true,
+      "details": "Email duplicado rechazado correctamente",
+      "timestamp": "2025-12-02T21:14:44.561305"
+    },
+    {
+      "test": "Rechazar nombre duplicado",
+      "passed": true,
+      "details": "Nombre duplicado rechazado correctamente",
+      "timestamp": "2025-12-02T21:14:44.567025"
+    },
+    {
+      "test": "Listar todos los usuarios",
+      "passed": true,
+      "details": "Lista contiene 3 usuarios",
+      "timestamp": "2025-12-02T21:14:44.571976"
+    },
+    {
+      "test": "Obtener usuario por ID",
+      "passed": true,
+      "details": "Usuario ProbadorSmoke obtenido correctamente",
+      "timestamp": "2025-12-02T21:14:44.577313"
+    },
+    {
+      "test": "Obtener usuario por nombre",
+      "passed": true,
+      "details": "Usuario obtenido por nombre",
+      "timestamp": "2025-12-02T21:14:44.582959"
+    },
+    {
+      "test": "Buscar usuario inexistente",
+      "passed": true,
+      "details": "Error 404 con detalles descriptivos",
+      "timestamp": "2025-12-02T21:14:44.589894"
+    },
+    {
+      "test": "Actualizar edad de usuario",
+      "passed": true,
+      "details": "Edad actualizada de 30 a 35",
+      "timestamp": "2025-12-02T21:14:44.603427"
+    },
+    {
+      "test": "Rechazar actualización con email duplicado",
+      "passed": true,
+      "details": "Actualización con email duplicado rechazada",
+      "timestamp": "2025-12-02T21:14:46.026064"
+    },
+    {
+      "test": "Añadir primera canción",
+      "passed": true,
+      "details": "Canción 'Shape of You' añadida",
+      "timestamp": "2025-12-02T21:14:48.471956"
+    },
+    {
+      "test": "Añadir segunda canción",
+      "passed": true,
+      "details": "Canción 'Blinding Lights' añadida",
+      "timestamp": "2025-12-02T21:14:50.808968"
+    },
+    {
+      "test": "Listar canciones de la playlist",
+      "passed": true,
+      "details": "Playlist contiene 2 canciones",
+      "timestamp": "2025-12-02T21:14:51.610528"
+    },
+    {
+      "test": "Rechazar canción duplicada",
+      "passed": true,
+      "details": "Canción duplicada rechazada",
+      "timestamp": "2025-12-02T21:14:53.383648"
+    },
+    {
+      "test": "Buscar canción inexistente",
+      "passed": false,
+      "details": "Canción inexistente debe retornar 404: esperado status 404, obtenido 200. Body: {'id': 4, 'nombre': 'ProbadorSmoke', 'email': 'tester_smoke@example.com', 'edad': 35, 'listaCanciones': [], 'playlist_id': '3hZ0H9X1OPErGiTOJkn3Z8', 'likes': []}",
+      "timestamp": "2025-12-02T21:14:55.828481"
+    },
+    {
+      "test": "Validar nombre de canción vacío",
+      "passed": true,
+      "details": "Nombre vacío rechazado",
+      "timestamp": "2025-12-02T21:14:55.832231"
+    },
+    {
+      "test": "Dar like a canción",
+      "passed": true,
+      "details": "Like dado a 'Shape of You'",
+      "timestamp": "2025-12-02T21:14:57.970427"
+    },
+    {
+      "test": "Rechazar like duplicado",
+      "passed": true,
+      "details": "Like duplicado rechazado",
+      "timestamp": "2025-12-02T21:14:59.302920"
+    },
+    {
+      "test": "Listar canciones con like",
+      "passed": true,
+      "details": "Usuario tiene 1 like(s)",
+      "timestamp": "2025-12-02T21:15:00.617285"
+    },
+    {
+      "test": "Like a canción no en playlist",
+      "passed": true,
+      "details": "Like a canción fuera de playlist rechazado",
+      "timestamp": "2025-12-02T21:15:01.607547"
+    },
+    {
+      "test": "Eliminar like",
+      "passed": true,
+      "details": "Like eliminado correctamente",
+      "timestamp": "2025-12-02T21:15:04.977597"
+    },
+    {
+      "test": "Eliminar like inexistente",
+      "passed": true,
+      "details": "Like inexistente retorna 404",
+      "timestamp": "2025-12-02T21:15:06.299787"
+    },
+    {
+      "test": "Filtrar canciones por artista",
+      "passed": true,
+      "details": "Filtrado por 'Ed Sheeran': 1 resultado(s)",
+      "timestamp": "2025-12-02T21:15:07.863286"
+    },
+    {
+      "test": "Filtrar por artista inexistente",
+      "passed": true,
+      "details": "Artista no encontrado retorna lista vacía",
+      "timestamp": "2025-12-02T21:15:08.583620"
+    },
+    {
+      "test": "Eliminar canción de playlist",
+      "passed": false,
+      "details": "Debe quedar 1 canción: esperado 1, obtenido 2",
+      "timestamp": "2025-12-02T21:15:11.579867"
+    },
+    {
+      "test": "Eliminar canción no en playlist",
+      "passed": true,
+      "details": "Canción no encontrada retorna 404",
+      "timestamp": "2025-12-02T21:15:13.224963"
+    },
+    {
+      "test": "Eliminar usuario",
+      "passed": true,
+      "details": "Usuario y playlist eliminados",
+      "timestamp": "2025-12-02T21:15:13.990753"
+    },
+    {
+      "test": "Eliminar usuario inexistente",
+      "passed": true,
+      "details": "Usuario inexistente retorna 404",
+      "timestamp": "2025-12-02T21:15:13.995928"
+    }
+  ]
+}
