@@ -1,0 +1,61 @@
+INFORME DE LA TAREA: SISTEMA DE GESTION DE PEDIDOS (FASTAPI)
+
+1) Objetivo general
+Construir una API de pedidos para una tienda online apoyada en estructuras de datos clásicas. La API expone CRUD de productos y pedidos, valida stock y devuelve métricas. Se ha priorizado eficiencia en memoria y claridad didáctica.
+
+2) Estructuras de datos empleadas y por qué
+- Binary Search Tree (BST) para productos: mantiene los productos ordenados por product_id, lo que simplifica b úsquedas y recorridos ordenados sin depender de una base de datos. Complejidad promedio O(log n) para insertar/buscar.
+  Fragmento clave (validación e inserción):
+  ```
+  if product_id <= 0:
+      raise ValueError("El product_id debe ser mayor que 0")
+  ...
+  if self.root is None:
+      self.root = new_node
+      self.size += 1
+      return True
+  ```
+- Lista enlazada simple (LinkedList) para pedidos: permite inserciones O(1) con tail y recorrido secuencial natural. Se adapta bien al patrón de creación continua de pedidos sin necesidad de índices aleatorios.
+- Servicios como capa de orquestación: ProductService envuelve el BST y OrderService envuelve la lista enlazada, coordinando validaciones y ajustes de stock.
+
+3) Colaboración entre estructuras
+- OrderService valida disponibilidad consultando el BST antes de crear un pedido:
+  ```
+  is_valid, error_msg, product = self.product_service.validate_product_availability(
+      product_id, quantity
+  )
+  if not is_valid:
+      raise ValueError(error_msg)
+  ```
+- Al confirmar un pedido, crea snapshots de producto en los OrderItem y descuenta stock en el BST:
+  ```
+  order_item = OrderItem(..., unit_price=product.price)
+  self.product_service.update_stock(product.product_id, -quantity)
+  ```
+- Al eliminar un pedido, el servicio recorre la lista enlazada y restaura el stock en el BST, cerrando el ciclo de consistencia.
+
+4) API y endpoints principales
+- /api/products: creación, consulta por ID, filtros (in-stock, rango de precio), actualización parcial y total, patch de stock y estadísticas.
+- /api/orders: creación (con validación de stock), consulta, listado, patch de estado, actualización completa, filtros por estado y cliente, estadísticas y eliminación con restauración de stock.
+- /health e /info: monitorización básica del servicio.
+
+5) Lógica de negocio destacada
+- Generación determinista de IDs de pedido con prefijo y contador:
+  ```
+  def _generate_order_id(self) -> str:
+      self.order_counter += 1
+      return f"ORD{self.order_counter:06d}"
+  ```
+- Actualización de pedido en dos fases: primero se valida y reserva stock, luego se aplica y se ajusta la diferencia para no dejar inconsistencias.
+- Estadísticas en memoria para dar feedback rápido sin depender de consultas externas.
+
+6) Persistencia y ejecución
+La app usa datos en memoria; los paths configurados en .env apuntan a ./data/ pero no se persiste en disco en esta versión. Arranque típico: `python main.py` (uvicorn con reload si debug=True).
+
+7) Pruebas automáticas incluidas
+- Se conserva un único runner: test_api_automatic.py. Es secuencial (evita carga concurrente), usa una sesión HTTP y un retardo configurable.
+- Cobertura: health/info, creación/actualización de productos, filtros, estadísticas, flujo completo de pedido (crear, cambiar estado, actualizar items, filtrar, estadísticas), validaciones de error (ID duplicado, precio negativo, pedido sin stock) y verificación de restauración de stock tras eliminar el pedido.
+- Limpieza: elimina productos y pedidos creados al final para dejar el sistema limpio tras cada ejecución.
+
+8) Conclusión
+La combinación BST + Lista Enlazada permite ilustrar cómo estructuras básicas resuelven necesidades reales (ordenar catálogo y gestionar flujos secuenciales) con complejidades razonables. Los servicios encapsulan reglas de negocio y coordinan ambas estructuras, mientras que la API las expone de forma clara y testeable. El runner automático demuestra el ciclo completo sin sobrecargar el servidor.
