@@ -145,7 +145,7 @@ HEAD -> (ORD000001) -> (ORD000002) -> (ORD000003) -> None
 ]
 ```
 
-### ASCII de inserción en BST y append en lista
+### Inserción en BST y append en lista
 ```
 Insertar product_id=4 en BST:
 
